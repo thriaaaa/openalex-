@@ -1,197 +1,84 @@
-# OpenAlex 全自动数据处理流程
+﻿# OpenAlex 全自动数据处理流水线 (OpenAlex Automated Data Pipeline)
 
-完整的 OpenAlex 增量数据处理工具链：下载 -> 展平 -> 去重合并 -> 模式映射，全程只需维护一个配置文件。
+本项目是一个专门用于自动化处理 **[OpenAlex](https://openalex.org/) 开放学术知识图谱数据** 的完整工具链。涵盖了从增量数据下载、JSONL数据展平、全量数据去重合并，到最终图数据库、文档数据库的模式映射的全流程端到端解决方案。
 
-## 功能特点
+## ✨ 核心特性
 
-- 从 OpenAlex S3 自动下载增量快照数据（authors / institutions / topics / works）
-- 将 JSONL 压缩包展平为 CSV 关系表
-- 与全量数据去重合并，输出净增量记录
-- 模式映射：自动生成图数据库所需的顶点、文档、边、向量文件（共 11 个子步骤）
-- 全流程统一配置：只需编辑 openalex_auto_config.json
-- 灵活选步：可任意组合大流程步骤，也可单独运行某个映射子步骤
-- 智能日期匹配：指定日期不存在时自动选最近可用日期
-- 并行下载 + 断点续传
-- GPU 加速向量生成（自动回退 CPU）
+- 🚀 **全链路自动化**：支持 下载 (Download) -> 展平 (Flatten) -> 去重合并 (Merge) -> 模式映射 (Schema Mapping) 完整 4 步无缝衔接。
+- 🛠️ **智能增量管理**：支持自定义起始/截止日期、断点续传、多线程并行下载，自动匹配 OpenAlex S3 的最新更新片段。
+- 🗃️ **去重与合并机制**：针对下载的增量 CSV 数据与本地全量数据集进行主键 (id) 交叉比对，精准输出**净增量记录**。
+- 🕸️ **多数据库协同映射**：基于一套数据源，能同时洗出适用不同检索和图算法场景的定制结构表：
+  - **Graph Vertex (图顶点)**: authors_v.csv, works_v.csv, topics_v.csv
+  - **Graph Edges (图边)**: work_topic_e.csv, work_author_e.csv, author_author_e.csv 等
+  - **Document (文档模型)**: author_doc.csv, work_doc.csv
+- 🧠 **文本向量化提取**：内嵌本地轻量级离线 BERT 模型引擎 (ll-MiniLM-L6-v2)，在映射步骤中对标题、摘要及关键词等字段生成高维特征向量 (384维度)，并可按需支持 GPU 显存自动调度。
+- ⚙️ **统一化配置**：告别零散参数，整个系统的一切行为通过配置 openalex_auto_config.json 进行管控。
+- 🧩 **模块化按需执行**：支持完整一条龙运行，也支持通过 CLI 参数单独运行某一个特定功能的细分脚本（比如只重新生成论文向量特征）。
 
-## 项目文件结构
+## 📁 核心文件结构
 
-    openalex_update_tackle/
-    - openalex_auto_config.json      唯一配置文件
-    - openalex_auto_workflow.py      全流程主入口（步骤 1~4）
-    - run_auto_workflow.bat          Windows 快速启动菜单
-    - requirements.txt
-    - all-MiniLM-L6-v2/             本地 BERT 模型
-    - schema_mapping/
-        - run_schema_mapping.py      模式映射调度脚本（可独立运行）
-        - 01_map_authors_to_vertex.py
-        - 02_map_works_to_vertex.py
-        - 03_map_topics_to_vertex.py
-        - 04_map_authors_to_doc.py
-        - 05_map_works_to_doc.py
-        - 06_map_works_topics_to_edge.py
-        - 07_map_works_authorships_to_edge.py
-        - 08_map_author_collaborations_to_edge.py
-        - 09_map_works_referenced_works_to_edge.py
-        - 10_map_works_vector.py
-        - 11_map_topics_vector.py
+`	ext
+├── openalex_auto_config.json      # 项目唯一核心配置文件
+├── openalex_auto_workflow.py      # 全流程主入口脚本（整合了下载、展平、去重和映射的调度）
+├── run_auto_workflow.bat          # Windows 快捷一键执行菜单
+├── requirements.txt               # 第三方 Python 依赖
+├── openalex_downloader.py         # S3 增量包检索及下载模块
+├── flatten.py                     # JSONL 转 CSV 逻辑解析模块
+├── merge_incremental.py           # 增量去重比对模块
+├── generate_vector.py             # 向量计算引擎模块
+└── schema_mapping/                # 图计算与文档模式的核心清洗映射逻辑库 (包含11个步骤)
+    ├── run_schema_mapping.py      # 映射总调度器 
+    ├── 01_map_authors_to_vertex.py
+    └── ... (其余 10 个特定表或图结构的清洗映射脚本)
+`
 
+## 🚀 快速开始
 
-## 安装依赖
+### 1. 环境依赖安装
+确保电脑上安装了 Python 3.8+ 版本环境，然后通过以下命令安装必要依赖：
 
-    pip install -r requirements.txt
+`ash
+git clone https://github.com/thriaaaa/openalex-.git
+cd openalex-
+pip install -r requirements.txt
+`
 
-## 快速开始
+### 2. 参数项配置
+复制或打开 openalex_auto_config.json 进行对应修改：
+- download_settings: 用于设置 start_date 和 data_types (下载的表名)。
+- merge_settings: 定义了生成的增量文件以及进行除重的 ull_data_dir。
+- schema_mapping_settings: 所有文件格式映射的步骤开关以及源数据和映射路径等。
 
-### 方式一：Windows 菜单（推荐）
+### 3. 一键运行 
+**方式一：Windows 用户（推荐）**
+直接双击项目的 un_auto_workflow.bat，即可按照交互层指引操作：
+`	ext
+[1] 执行全套流水线任务 (Download -> Flatten -> Merge -> Mapping)
+[2] 仅执行模式数据映射 (Mapping)
+[3] 跳过映射，只生成净增量 (Download -> Flatten -> Merge)
+[4] 自定义指定任意步骤组合 
+`
 
-双击 run_auto_workflow.bat，按提示选择执行模式：
+**方式二：全端命令行模式**
+您可以利用强大的内置 CLI 工具，自由度更高：
 
-    [1] 全流程执行（下载 -> 展平 -> 合并 -> 映射）
-    [2] 只执行模式映射
-    [3] 只执行下载+展平+合并
-    [4] 自定义命令行参数
+`ash
+# 执行配置文件记录的全部步骤
+python openalex_auto_workflow.py
 
-### 方式二：命令行
+# 只执行下载、展平、合并步骤（忽略配置里的映射）
+python openalex_auto_workflow.py --steps download flatten merge
 
-    # 按配置文件执行所有步骤
-    python openalex_auto_workflow.py
+# 仅指定其中的某几项映射逻辑重新执行（比如我想单独刷新一边作者合作的图谱结构边表和所有的向量数据）
+python openalex_auto_workflow.py --steps schema_mapping --mapping-steps 08 10 11
+`
 
-    # 只执行指定大步骤
-    python openalex_auto_workflow.py --steps download flatten merge
+## 📝 常见问题 (FAQ)
+- **Q: 提示显存 OOM 或 GPU 不可用怎么办？** 
+  A: 系统会在执行 schema_mapping 里的 10_works_vector 时对本地硬件自审。无需人工干预或配置，若无 GPU 或显存吃紧，系统会自动把推断切回纯 CPU 计算以兜底。
 
-    # 只执行模式映射的所有子步骤
-    python openalex_auto_workflow.py --steps schema_mapping
+- **Q: 增量拉取途中网断了？** 
+  A: 本系统配置了可靠的断点续传功能（需在配置表里确保 skip_existing_downloads 为 true），重新执行后会自动从出错的 gz 压缩包分片处继续。
 
-    # 只执行模式映射中的向量生成（子步骤 10、11）
-    python openalex_auto_workflow.py --steps schema_mapping --mapping-steps 10 11
-
-    # 合并后直接做顶点映射（前三个子步骤）
-    python openalex_auto_workflow.py --steps merge schema_mapping --mapping-steps 01 02 03
-
-    # 查看帮助
-    python openalex_auto_workflow.py --help
-
-### 方式三：只跑模式映射（独立）
-
-    cd schema_mapping
-
-    # 执行配置中所有启用的子步骤
-    python run_schema_mapping.py
-
-    # 只执行指定子步骤（数字前缀或完整 key 均可）
-    python run_schema_mapping.py --steps 01 02 03
-    python run_schema_mapping.py --steps 10 11
-
-    # 列出所有可用子步骤
-    python run_schema_mapping.py --list
-
-## 配置文件说明（openalex_auto_config.json）
-
-### 大流程步骤控制
-
-workflow.steps 控制整体执行哪些阶段，删除不需要的条目即可跳过：
-
-    download        从 OpenAlex S3 下载增量 JSONL 压缩包
-    flatten         将 JSONL 展平为 CSV.GZ 关系表
-    merge           与全量数据去重，输出净增量 CSV
-    schema_mapping  模式映射，生成图数据库所需文件
-
-### download_settings
-
-    start_date          增量起始日期，格式 YYYY-MM-DD
-    end_date            增量截止日期，"latest" 表示最新可用日期
-    data_types          要下载的类型：authors / institutions / topics / works
-    download_dir        原始 JSONL 文件保存目录
-    csv_dir             展平后 CSV.GZ 文件保存目录
-    parallel_downloads  并行下载线程数（建议 2~8）
-
-### merge_settings
-
-    incremental_dir   展平后的增量 CSV 目录（即 csv_dir）
-    full_data_dir     已有全量数据目录（用于去重比对）
-    output_dir        去重后净增量输出目录
-    temp_dir          临时解压目录
-    max_workers       并行线程数
-    chunk_size        每批处理行数
-    special_file_paths    特定文件指向全量数据中的自定义路径
-    column_mappings       全量文件列名与增量列名不一致时的映射
-    files_to_process      要处理的 CSV 文件列表
-
-### schema_mapping_settings
-
-    input_dir         去重合并后的数据目录（对应 merge_settings.output_dir）
-    output_dir        顶点文件输出目录
-    doc_output_dir    文档模型文件输出目录
-    edge_output_dir   边文件输出目录
-    vector_output_dir 向量文件输出目录
-    bert_model_path   本地 BERT 模型路径（all-MiniLM-L6-v2）
-    steps             要执行的子步骤列表，删除不需要的条目即可跳过
-
-模式映射子步骤：
-
-    01  01_authors_vertex              Authors 顶点              -> authors_v.csv
-    02  02_works_vertex                Works 顶点                -> works_v.csv
-    03  03_topics_vertex               Topics 顶点               -> topics_v.csv
-    04  04_authors_doc                 Authors 文档              -> author_doc.csv
-    05  05_works_doc                   Works 文档                -> work_doc.csv
-    06  06_works_topics_edge           Works-Topics 边           -> work_topic_e.csv
-    07  07_works_authorships_edge      Works-Authorships 边      -> work_author_e.csv
-    08  08_author_collaborations_edge  作者合作关系 边            -> author_author_e.csv
-    09  09_works_referenced_works_edge 论文引用关系 边            -> work_referenced_work_e.csv
-    10  10_works_vector                Works title+abstract 向量  -> works_vector.csv
-    11  11_topics_vector               Topics keywords 向量       -> topics_vector.csv
-
-## 数据流与目录结构
-
-    下载 (downloaded_data/)
-      JSONL .gz 原始文件（按 data_type/updated_date= 分目录）
-
-    展平 (csv-files/)
-      authors.csv.gz / works.csv.gz / works_authorships.csv.gz 等
-
-    去重合并 (openalex_merged/)
-      authors.csv / works.csv / works_authorships.csv 等（净增量）
-
-    模式映射
-      graph_vertex/  -> authors_v.csv / works_v.csv / topics_v.csv
-      doc/           -> author_doc.csv / work_doc.csv
-      graph_edges/   -> work_topic_e.csv / work_author_e.csv
-                        author_author_e.csv / work_referenced_work_e.csv
-      vector/        -> works_vector.csv / topics_vector.csv
-
-## 日志文件
-
-    openalex_auto_workflow.log              全流程主日志（步骤 1~4）
-    schema_mapping/schema_mapping.log       模式映射详细日志
-
-## 注意事项
-
-1. 唯一配置文件：只需编辑 openalex_auto_config.json，不再有其他配置文件
-2. full_data_dir：需指向已有全量数据所在目录，否则去重步骤会直接复制增量数据
-3. 向量生成：需要 CUDA GPU 且显存不低于 4GB；无 GPU 时自动使用 CPU
-4. BERT 模型：all-MiniLM-L6-v2/ 目录需在项目根目录，或在配置中修改 bert_model_path
-5. 存储空间：全量 OpenAlex 数据很大，请确保磁盘空间充足
-6. 选择性执行：通过 --steps / --mapping-steps 参数，或修改配置中的 steps 数组来跳过不需要的步骤
-
-## 常见问题
-
-Q: 只想跑模式映射，不重新下载数据？
-A: python openalex_auto_workflow.py --steps schema_mapping
-   或双击 run_auto_workflow.bat 选择 [2]
-
-Q: 模式映射只想重新生成向量？
-A: python openalex_auto_workflow.py --steps schema_mapping --mapping-steps 10 11
-
-Q: 如何只处理部分数据类型？
-A: 修改 download_settings.data_types，删除不需要的类型。
-
-Q: 去重后没有新数据输出？
-A: 增量与全量完全重叠时正常，请检查 full_data_dir 路径是否正确。
-
-Q: 下载中断了怎么办？
-A: 直接重新运行，skip_existing_downloads: true 会自动跳过已下载的文件。
-
-Q: 指定的日期在 OpenAlex 上不存在？
-A: 脚本会自动选取最接近的可用日期，无需手动调整。
-
+## 📄 许可证
+本项目采用 [MIT License](LICENSE) 授权自由使用与二次创作。
