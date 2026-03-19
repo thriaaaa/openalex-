@@ -1,5 +1,7 @@
 # OpenAlex 全自动数据处理流水线 (OpenAlex Automated Data Pipeline)
 
+![OpenAlex 多模数据集展示](images/openalex-intro.png)
+
 本项目是一个专门用于自动化处理 **[OpenAlex](https://openalex.org/) 开放学术知识图谱数据** 的完整工具链。涵盖了从增量数据下载、JSONL数据展平、全量数据去重合并，到最终图数据库、文档数据库的模式映射的全流程端到端解决方案。
 
 ## ✨ 核心特性
