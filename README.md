@@ -51,7 +51,8 @@ pip install -r requirements.txt
 
 ### 3. 一键运行 
 **方式一：Windows 用户（推荐）**
-直接双击项目的 un_auto_workflow.bat，即可按照交互层指引操作：
+直接双击项目的 
+un_auto_workflow.bat，即可按照交互层指引操作：
 `	ext
 [1] 执行全套流水线任务 (Download -> Flatten -> Merge -> Mapping)
 [2] 仅执行模式数据映射 (Mapping)
@@ -62,7 +63,6 @@ pip install -r requirements.txt
 **方式二：全端命令行模式**
 您可以利用强大的内置 CLI 工具，自由度更高：
 
-`ash
 # 执行配置文件记录的全部步骤
 python openalex_auto_workflow.py
 
