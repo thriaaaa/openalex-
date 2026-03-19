@@ -1,0 +1,207 @@
+{
+  "download_settings": {
+    "start_date": "2024-01-01",
+    "end_date": "latest",
+    "data_types": [
+      "authors",
+      "institutions",
+      "topics",
+      "works"
+    ],
+    "download_dir": "./downloaded_data",
+    "csv_dir": "./csv-files",
+    "parallel_downloads": 4,
+    "auto_download": true,
+    "auto_flatten": true
+  },
+  "merge_settings": {
+    "incremental_dir": "./csv-files",
+    "full_data_dir": "/path/to/your/full_data_dir/csv-files",
+    "output_dir": "./openalex_merged",
+    "temp_dir": "./temp_decompressed",
+    "max_workers": 8,
+    "chunk_size": 100000,
+    "cleanup_temp": true,
+    "auto_merge": true,
+    "special_file_paths": {
+      "works_referenced_works.csv": "/path/to/your/full_data_dir/graph_edges/works_referenced_works_edges.csv"
+    },
+    "column_mappings": {
+      "works_referenced_works.csv": {
+        "work_id": "startid",
+        "referenced_work_id": "endid"
+      }
+    },
+    "files_to_process": [
+      "authors.csv",
+      "institutions.csv",
+      "institutions_geo.csv",
+      "topics.csv",
+      "works.csv",
+      "works_topics.csv",
+      "works_authorships.csv",
+      "works_referenced_works.csv"
+    ]
+  },
+  "workflow": {
+    "steps": [
+      "download",
+      "flatten",
+      "merge",
+      "schema_mapping"
+    ],
+    "skip_existing_downloads": true,
+    "cleanup_after_merge": false,
+    "comment_steps": "可选步骤: download / flatten / merge / schema_mapping，删除不需要的步骤即可跳过"
+  },
+  "schema_mapping_settings": {
+    "input_dir": "./openalex_merged",
+    "output_dir": "./graph_vertex",
+    "doc_output_dir": "./doc",
+    "edge_output_dir": "./graph_edges",
+    "vector_output_dir": "./vector",
+    "bert_model_path": "./all-MiniLM-L6-v2",
+    "steps": [
+      "01_authors_vertex",
+      "02_works_vertex",
+      "03_topics_vertex",
+      "04_authors_doc",
+      "05_works_doc",
+      "06_works_topics_edge",
+      "07_works_authorships_edge",
+      "08_author_collaborations_edge",
+      "09_works_referenced_works_edge",
+      "10_works_vector",
+      "11_topics_vector"
+    ],
+    "comment_steps": "可选步骤列表，删除不需要的条目可跳过对应映射，顺序与脚本编号一致",
+    "authors_mapping": {
+      "required_fields": [
+        "display_name",
+        "works_count",
+        "cited_by_count"
+      ],
+      "output_file": "authors_v.csv"
+    },
+    "works_mapping": {
+      "required_fields": [
+        "title",
+        "publication_year",
+        "publication_date",
+        "type",
+        "cited_by_count",
+        "is_retracted",
+        "is_paratext"
+      ],
+      "output_file": "works_v.csv"
+    },
+    "topics_mapping": {
+      "required_fields": [
+        "display_name",
+        "keywords",
+        "works_count",
+        "cited_by_count"
+      ],
+      "output_file": "topics_v.csv"
+    },
+    "authors_doc_mapping": {
+      "optional_fields": [
+        "orcid"
+      ],
+      "array_fields": [
+        "display_name_alternatives"
+      ],
+      "output_file": "author_doc.csv"
+    },
+    "works_doc_mapping": {
+      "metadata_fields": [
+        "language",
+        "abstract",
+        "volume",
+        "issue",
+        "first_page",
+        "last_page"
+      ],
+      "relation_tables": {
+        "authorships": "works_authorships.csv",
+        "topics": "works_topics.csv"
+      },
+      "authorship_fields": [
+        "author_position",
+        "author_id",
+        "author_display_name",
+        "institution_id",
+        "institution_display_name"
+      ],
+      "topic_fields": [
+        "topic_id",
+        "topic_display_name",
+        "score"
+      ],
+      "inverted_index_field": "abstract_inverted_index",
+      "output_file": "work_doc.csv"
+    },
+    "works_topics_edge_mapping": {
+      "edge_type": "work_topic",
+      "start_node": "work",
+      "end_node": "topic",
+      "properties_fields": [
+        "score"
+      ],
+      "output_file": "work_topic_e.csv"
+    },
+    "works_authorships_edge_mapping": {
+      "edge_type": "work_author",
+      "start_node": "work",
+      "end_node": "author",
+      "properties_fields": [
+        "author_position"
+      ],
+      "output_file": "work_author_e.csv"
+    },
+    "author_collaboration_edge_mapping": {
+      "edge_type": "author_author",
+      "start_node": "author",
+      "end_node": "author",
+      "source_tables": [
+        "works.csv",
+        "works_authorships.csv"
+      ],
+      "properties_fields": [
+        "cnt",
+        "list"
+      ],
+      "output_file": "author_author_e.csv",
+      "description": "作者合作关系边，通过共同发表作品建立，properties包含合作次数和作品列表"
+    },
+    "works_referenced_works_edge_mapping": {
+      "edge_type": "work_reference",
+      "start_node": "work",
+      "end_node": "referenced_work",
+      "properties_fields": [],
+      "output_file": "work_referenced_work_e.csv",
+      "description": "论文引用关系边，startid引用endid，properties为空对象"
+    },
+    "works_vector_mapping": {
+      "input_fields": [
+        "id",
+        "doi",
+        "title",
+        "abstract_inverted_index"
+      ],
+      "output_file": "works_vector.csv",
+      "vector_dim": 384,
+      "description": "works 向量文件，title + abstract 编码为 384 维向量，字段: work_id, doi, vec"
+    },
+    "topics_vector_mapping": {
+      "input_fields": [
+        "id",
+        "keywords"
+      ],
+      "output_file": "topics_vector.csv",
+      "vector_dim": 384,
+      "description": "topics 向量文件，keywords 编码为 384 维向量，字段: id, vec"
+    }
+  },
+  "comment": "全自动化OpenAlex数据处理流程：下载 → 展平 → 去重合并 → 模式映射\n步骤说明:\n  workflow.steps 控制大流程步骤 (download/flatten/merge/schema_mapping)\n  schema_mapping_settings.steps 控制模式映射子步骤 (可单独选择执行哪些映射)"
+}

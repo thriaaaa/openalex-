@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv/
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+# Project specific
+downloaded_data/
+csv-files/
+openalex_merged/
+temp_decompressed/
+graph_vertex/
+doc/
+graph_edges/
+vector/
+
+# Model contents
+all-MiniLM-L6-v2/*.bin
+all-MiniLM-L6-v2/*.safetensors
+all-MiniLM-L6-v2/*.msgpack
+all-MiniLM-L6-v2/*.h5
+all-MiniLM-L6-v2/*.onnx
+all-MiniLM-L6-v2/*.ot
